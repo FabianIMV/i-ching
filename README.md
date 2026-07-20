@@ -15,11 +15,16 @@ interpretación generada por la API de Gemini.
   9 → 1/8.
 - Detección de líneas mutantes, cálculo del hexagrama de cambio y
   síntesis original por posición y polaridad de cada línea mutante.
-- Interpretación generada con Gemini (`gemini-2.5-flash`, configurable en
-  `app.js` como `GEMINI_MODEL`), con instrucciones de sistema que evitan
-  el sesgo optimista y piden una lectura estructurada. Si la llamada
-  falla, se muestra una interpretación de respaldo generada localmente
-  con los datos del hexagrama, nunca una lectura vacía.
+- Interpretación generada con Gemini, probando en orden una lista de
+  modelos configurable en `app.js` (`GEMINI_MODEL_CANDIDATES`: por
+  defecto `gemini-flash-latest` → `gemini-2.5-flash` →
+  `gemini-flash-lite-latest`). Esto absorbe caídas puntuales de un
+  modelo específico (sobrecarga, retiro de versiones fijas para cuentas
+  nuevas, etc.) sin tocar código. Si un modelo devuelve error, se prueba
+  el siguiente; si la clave es inválida (400/403) se corta de inmediato
+  sin insistir. Si todos fallan, se muestra una interpretación de
+  respaldo generada localmente con los datos del hexagrama, nunca una
+  lectura vacía.
 - Exportación a Markdown (botón "Copiar en Markdown") con fecha, pregunta,
   hexagramas, líneas mutantes, interpretación completa y una sección
   final `## Verificación posterior` para completar después en tu
