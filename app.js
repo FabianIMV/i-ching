@@ -6,9 +6,23 @@
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-// El workflow de despliegue reemplaza este placeholder por el secret
-// GEMINI_API_KEY en tiempo de build. En desarrollo local queda vacío.
-const GEMINI_API_KEY = '__GEMINI_API_KEY__';
+// La clave de Gemini NUNCA se commitea ni se inyecta en el build: cada
+// visitante ingresa la suya propia la primera vez y queda guardada solo
+// en su navegador (localStorage), hasta que borre datos de sitio o la
+// cambie manualmente. El sitio publicado no contiene ninguna clave.
+const API_KEY_STORAGE_KEY = 'iching_gemini_api_key';
+
+function getApiKey() {
+  return (localStorage.getItem(API_KEY_STORAGE_KEY) || '').trim();
+}
+
+function setApiKey(key) {
+  localStorage.setItem(API_KEY_STORAGE_KEY, key.trim());
+}
+
+function clearApiKey() {
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+}
 
 const SYSTEM_PROMPT = `Eres un intérprete del I Ching riguroso y honesto. Reglas estrictas:
 1. NO tengas sesgo optimista. El I Ching advierte, frena y dice 'desventura' cuando corresponde. Si el hexagrama es adverso, dilo con claridad y explica qué pide la situación.
@@ -83,6 +97,7 @@ function tossLine() {
 // Navegación entre pantallas
 // ============================================================
 const screens = {
+  apikey: document.getElementById('screen-apikey'),
   home: document.getElementById('screen-home'),
   question: document.getElementById('screen-question'),
   casting: document.getElementById('screen-casting'),
@@ -93,6 +108,44 @@ function showScreen(name) {
   Object.values(screens).forEach(s => s.classList.remove('active'));
   screens[name].classList.add('active');
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+}
+
+// ============================================================
+// Pantalla de clave de Gemini (primera visita o clave borrada)
+// ============================================================
+const apiKeyForm = document.getElementById('apikey-form');
+const apiKeyInput = document.getElementById('apikey-input');
+const apiKeyError = document.getElementById('apikey-error');
+
+apiKeyForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const value = apiKeyInput.value.trim();
+  if (!value) {
+    apiKeyError.textContent = 'Ingresa una clave para continuar.';
+    apiKeyError.style.display = '';
+    return;
+  }
+  setApiKey(value);
+  apiKeyError.style.display = 'none';
+  apiKeyInput.value = '';
+  showScreen('home');
+});
+
+document.getElementById('btn-change-apikey').addEventListener('click', () => {
+  apiKeyInput.value = getApiKey();
+  apiKeyError.style.display = 'none';
+  showScreen('apikey');
+});
+
+document.getElementById('btn-clear-apikey').addEventListener('click', () => {
+  clearApiKey();
+  apiKeyInput.value = '';
+  apiKeyError.style.display = 'none';
+  showScreen('apikey');
+});
+
+function initialScreen() {
+  return getApiKey() ? 'home' : 'apikey';
 }
 
 document.getElementById('btn-start').addEventListener('click', () => {
@@ -389,15 +442,16 @@ async function requestInterpretation() {
   box.innerHTML = '<p class="loading">Consultando la interpretación…</p>';
   state.interpretationError = false;
 
-  if (!GEMINI_API_KEY || GEMINI_API_KEY.indexOf('GEMINI_API_KEY') !== -1) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     state.interpretation = localFallbackInterpretation();
     state.interpretationError = true;
-    renderInterpretation(true);
+    renderInterpretation(true, false);
     return;
   }
 
   try {
-    const response = await fetch(`${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -405,6 +459,9 @@ async function requestInterpretation() {
       }),
     });
 
+    if (response.status === 400 || response.status === 403) {
+      throw new Error('AUTH');
+    }
     if (!response.ok) throw new Error(`Gemini respondió con estado ${response.status}`);
 
     const data = await response.json();
@@ -421,7 +478,7 @@ async function requestInterpretation() {
     console.error('Error al interpretar con Gemini:', err);
     state.interpretation = localFallbackInterpretation();
     state.interpretationError = true;
-    renderInterpretation(true);
+    renderInterpretation(true, err.message === 'AUTH');
   }
 }
 
@@ -436,14 +493,16 @@ function renderMarkdownText(md) {
   return paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 }
 
-function renderInterpretation(isFallback) {
+function renderInterpretation(isFallback, isAuthError) {
   const box = document.getElementById('interpretation-box');
   const retryBtn = document.getElementById('btn-retry-interpretation');
   box.innerHTML = renderMarkdownText(state.interpretation);
   if (isFallback) {
     const notice = document.createElement('p');
     notice.className = 'fallback-notice';
-    notice.textContent = 'No se pudo contactar la interpretación de Gemini. Se muestra una lectura estructural de respaldo generada localmente.';
+    notice.textContent = isAuthError
+      ? 'Gemini rechazó la clave guardada (inválida, sin permisos o sin cuota). Revisa o cambia tu clave desde "Cambiar clave" en el inicio. Mientras tanto, se muestra una lectura estructural de respaldo.'
+      : 'No se pudo contactar la interpretación de Gemini. Se muestra una lectura estructural de respaldo generada localmente.';
     box.prepend(notice);
     retryBtn.style.display = '';
   } else {
@@ -528,3 +587,8 @@ document.getElementById('btn-copy-markdown').addEventListener('click', async () 
     window.prompt('Copia manualmente el texto:', md);
   }
 });
+
+// ============================================================
+// Arranque: pide la clave si aún no está guardada en este navegador
+// ============================================================
+showScreen(initialScreen());

@@ -135,6 +135,55 @@ h3 {
 }
 .btn-secondary:hover { border-color: var(--gold-dim); }
 
+.btn-link {
+  width: auto;
+  background: transparent;
+  border: none;
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 0.4rem 0.5rem;
+  margin-top: 0.4rem;
+}
+.btn-link:hover { color: var(--gold-dim); }
+
+/* --- Pantalla de clave de Gemini --- */
+.apikey-title {
+  text-align: center;
+  border-bottom: none;
+  color: var(--ink);
+}
+#screen-apikey .glyph {
+  display: block;
+  text-align: center;
+}
+#apikey-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+#apikey-input:focus {
+  outline: none;
+  border-color: var(--gold-dim);
+}
+.apikey-error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+.apikey-help {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  margin-top: 1.5rem;
+}
+.apikey-help a { color: var(--gold-dim); }
+
 /* --- Formulario --- */
 textarea {
   width: 100%;

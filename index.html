@@ -11,8 +11,38 @@
 
 <main id="app">
 
+  <!-- ============ PANTALLA 0: CLAVE DE GEMINI ============ -->
+  <section id="screen-apikey" class="screen">
+    <div class="screen-inner">
+      <p class="glyph">☯</p>
+      <h2 class="apikey-title">Tu clave de Gemini</h2>
+      <p class="hint">
+        Este oráculo interpreta cada tirada con la API de Gemini. Pega tu
+        propia clave para activarla: se guarda solo en este navegador
+        (<code>localStorage</code>), nunca se envía a ningún servidor
+        propio ni queda en el código del sitio, y permanece disponible
+        mientras no borres los datos del sitio o la cambies.
+      </p>
+      <form id="apikey-form">
+        <input id="apikey-input" type="password" autocomplete="off"
+          spellcheck="false" placeholder="Pega aquí tu API key de Gemini"
+          required>
+        <p id="apikey-error" class="apikey-error" style="display:none;"></p>
+        <button type="submit" class="btn btn-primary">Guardar y continuar</button>
+      </form>
+      <p class="apikey-help">
+        ¿No tienes una clave? Consíguela gratis en
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+        Por seguridad, restríngela allí por referrer HTTP a tu propio
+        dominio antes de usarla aquí. Sin clave configurada, el oráculo
+        igual funciona con una interpretación estructural generada
+        localmente, sin IA.
+      </p>
+    </div>
+  </section>
+
   <!-- ============ PANTALLA 1: INICIO ============ -->
-  <section id="screen-home" class="screen active">
+  <section id="screen-home" class="screen">
     <div class="screen-inner home-inner">
       <p class="glyph">☯</p>
       <h1>I Ching</h1>
@@ -23,6 +53,8 @@
         lectura estructurada de tu situación presente.
       </p>
       <button id="btn-start" class="btn btn-primary">Comenzar consulta</button>
+      <button id="btn-change-apikey" class="btn btn-link">Cambiar clave de Gemini</button>
+      <button id="btn-clear-apikey" class="btn btn-link">Borrar clave guardada</button>
     </div>
   </section>
 
