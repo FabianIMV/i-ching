@@ -3,8 +3,16 @@
    ============================================================ */
 
 // --- Configuración del modelo Gemini (fácil de actualizar) ---
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// Se prueban en orden: los alias "-latest" sobreviven a la baja de
+// versiones fijas (ej. Google puede retirar "gemini-2.5-flash" para
+// cuentas nuevas con un 404), y el "-lite" queda de última red de
+// seguridad porque tiende a tener más cupo disponible.
+const GEMINI_MODEL_CANDIDATES = [
+  'gemini-flash-latest',
+  'gemini-2.5-flash',
+  'gemini-flash-lite-latest',
+];
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 // La clave de Gemini NUNCA se commitea ni se inyecta en el build: cada
 // visitante ingresa la suya propia la primera vez y queda guardada solo
@@ -435,6 +443,39 @@ Hexagrama de cambio: ${changingText}
 Con estos datos, entrega la interpretación siguiendo exactamente la estructura pedida en las reglas.`;
 }
 
+async function callGeminiModel(model, apiKey, prompt) {
+  const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+    }),
+  });
+
+  if (response.status === 400 || response.status === 403) {
+    const err = new Error('AUTH');
+    err.kind = 'AUTH';
+    throw err;
+  }
+  if (!response.ok) {
+    const err = new Error(`Gemini (${model}) respondió con estado ${response.status}`);
+    err.kind = 'MODEL';
+    throw err;
+  }
+
+  const data = await response.json();
+  const parts = data && data.candidates && data.candidates[0] &&
+    data.candidates[0].content && data.candidates[0].content.parts;
+  const text = Array.isArray(parts) ? parts.map(p => p.text || '').join('') : '';
+
+  if (!text.trim()) {
+    const err = new Error('Respuesta vacía de Gemini');
+    err.kind = 'MODEL';
+    throw err;
+  }
+  return text;
+}
+
 async function requestInterpretation() {
   const box = document.getElementById('interpretation-box');
   const retryBtn = document.getElementById('btn-retry-interpretation');
@@ -450,36 +491,26 @@ async function requestInterpretation() {
     return;
   }
 
-  try {
-    const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt() }] }],
-      }),
-    });
+  const prompt = buildPrompt();
+  let lastErr = null;
 
-    if (response.status === 400 || response.status === 403) {
-      throw new Error('AUTH');
+  for (const model of GEMINI_MODEL_CANDIDATES) {
+    try {
+      const text = await callGeminiModel(model, apiKey, prompt);
+      state.interpretation = text;
+      state.interpretationError = false;
+      renderInterpretation(false);
+      return;
+    } catch (err) {
+      console.error(`Error al interpretar con Gemini (${model}):`, err);
+      lastErr = err;
+      if (err.kind === 'AUTH') break; // la clave está mal: no tiene sentido probar otros modelos
     }
-    if (!response.ok) throw new Error(`Gemini respondió con estado ${response.status}`);
-
-    const data = await response.json();
-    const parts = data && data.candidates && data.candidates[0] &&
-      data.candidates[0].content && data.candidates[0].content.parts;
-    const text = Array.isArray(parts) ? parts.map(p => p.text || '').join('') : '';
-
-    if (!text.trim()) throw new Error('Respuesta vacía de Gemini');
-
-    state.interpretation = text;
-    state.interpretationError = false;
-    renderInterpretation(false);
-  } catch (err) {
-    console.error('Error al interpretar con Gemini:', err);
-    state.interpretation = localFallbackInterpretation();
-    state.interpretationError = true;
-    renderInterpretation(true, err.message === 'AUTH');
   }
+
+  state.interpretation = localFallbackInterpretation();
+  state.interpretationError = true;
+  renderInterpretation(true, lastErr && lastErr.kind === 'AUTH');
 }
 
 function renderMarkdownText(md) {
