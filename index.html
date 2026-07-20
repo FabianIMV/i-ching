@@ -70,8 +70,28 @@
       <form id="question-form">
         <textarea id="question-input" rows="5" required
           placeholder="Escribe aquí tu pregunta…"></textarea>
-        <button type="submit" class="btn btn-primary">Lanzar las monedas</button>
+        <button type="submit" class="btn btn-primary">Continuar</button>
       </form>
+    </div>
+  </section>
+
+  <!-- ============ PANTALLA 2.5: AFINAR LA PREGUNTA ============ -->
+  <section id="screen-refine" class="screen">
+    <div class="screen-inner">
+      <h2>Afinar la pregunta</h2>
+      <p id="refine-loading" class="hint">Revisando si la pregunta está bien planteada para el I Ching…</p>
+
+      <div id="refine-content" style="display:none;">
+        <p class="refine-label">Tu pregunta original</p>
+        <p id="refine-original" class="refine-original"></p>
+
+        <p class="refine-label">Pregunta sugerida para el I Ching</p>
+        <p id="refine-note" class="hint refine-note"></p>
+        <textarea id="refine-reformulated" rows="4"></textarea>
+
+        <button id="btn-use-reformulated" class="btn btn-primary">Usar esta pregunta</button>
+        <button id="btn-use-original" class="btn btn-secondary">Usar mi pregunta original</button>
+      </div>
     </div>
   </section>
 

@@ -184,6 +184,51 @@ h3 {
 }
 .apikey-help a { color: var(--gold-dim); }
 
+/* --- Pantalla de afinar pregunta --- */
+.refine-label {
+  color: var(--gold-dim);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 1.1rem 0 0.3rem;
+}
+.refine-original {
+  color: var(--ink-dim);
+  font-style: italic;
+  margin: 0 0 0.5rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.refine-note {
+  margin-bottom: 0.5rem;
+}
+#refine-reformulated {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.9rem;
+  margin-bottom: 1rem;
+  resize: vertical;
+}
+#refine-reformulated:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.result-question-original {
+  display: block;
+  font-size: 0.85rem;
+  font-style: normal;
+  color: var(--ink-faint);
+  margin-top: 0.35rem;
+}
+
 /* --- Formulario --- */
 textarea {
   width: 100%;
