@@ -41,6 +41,34 @@ const SYSTEM_PROMPT = `Eres un intérprete del I Ching riguroso y honesto. Regla
 6. Español claro y legible, denso pero no enredado. Usa **negritas** en lo clave. Cierra con una síntesis de una sola frase.
 7. Responde EXCLUSIVAMENTE en español.`;
 
+const REFORMULATION_SYSTEM_PROMPT = `Eres un asistente que ayuda a plantear bien una pregunta antes de consultar el I Ching. Reglas estrictas:
+1. El I Ching funciona mejor con preguntas abiertas sobre una situación, una actitud o un proceso — no con preguntas cerradas de sí/no, ni con pedidos de predicción certera de un evento futuro, ni con preguntas sobre lo que un tercero hará o siente.
+2. Si la pregunta ya está bien planteada así, devuélvela EXACTAMENTE igual, sin cambiar una palabra.
+3. Si no lo está, reformúlala conservando el tema y la intención original del consultante, pero abriéndola hacia la situación, la actitud correcta o lo que el consultante puede observar o hacer — nunca hacia una certeza sobre el futuro ni hacia el control de otra persona.
+4. No agregues contexto, suposiciones ni detalles que el consultante no haya dado.
+5. Responde EXCLUSIVAMENTE con la pregunta final (original o reformulada), en una sola línea, en español, sin comillas, sin explicación, sin texto adicional.`;
+
+function buildReformulationPrompt(question) {
+  return `${REFORMULATION_SYSTEM_PROMPT}\n\nPregunta original del consultante: "${question}"`;
+}
+
+async function requestReformulation(question) {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
+  const prompt = buildReformulationPrompt(question);
+  for (const model of GEMINI_MODEL_CANDIDATES) {
+    try {
+      const text = await callGeminiModel(model, apiKey, prompt);
+      return text.replace(/^["«]|["»]$/g, '').trim();
+    } catch (err) {
+      console.error(`Error al reformular con Gemini (${model}):`, err);
+      if (err.kind === 'AUTH') return null; // clave inválida: no insistir
+    }
+  }
+  return null; // todos los modelos fallaron: se sigue con la pregunta original, sin bloquear la consulta
+}
+
 // --- Índice bits -> hexagrama, construido a partir de data.js ---
 const HEXAGRAMS = HEXAGRAM_SEQUENCE.map(h => {
   const bits = [...TRIGRAMS[h.lower].bits, ...TRIGRAMS[h.upper].bits];
@@ -76,7 +104,8 @@ function lineMutationText(position, fromYang) {
 // Estado de la aplicación
 // ============================================================
 const state = {
-  question: '',
+  question: '',          // pregunta finalmente usada para la tirada
+  originalQuestion: '',  // pregunta tal como la escribió el consultante
   lines: [],       // [{ sum, value(6|7|8|9), yang(bool) }] de abajo hacia arriba
   present: null,   // hexagrama presente
   changing: null,  // hexagrama de cambio (o null)
@@ -108,6 +137,7 @@ const screens = {
   apikey: document.getElementById('screen-apikey'),
   home: document.getElementById('screen-home'),
   question: document.getElementById('screen-question'),
+  refine: document.getElementById('screen-refine'),
   casting: document.getElementById('screen-casting'),
   result: document.getElementById('screen-result'),
 };
@@ -165,6 +195,7 @@ document.getElementById('btn-new-consultation').addEventListener('click', resetT
 
 function resetToHome() {
   state.question = '';
+  state.originalQuestion = '';
   state.lines = [];
   state.present = null;
   state.changing = null;
@@ -176,7 +207,7 @@ function resetToHome() {
 }
 
 // ============================================================
-// Pantalla de pregunta -> lanza la tirada
+// Pantalla de pregunta -> afinar pregunta (si hay clave) -> tirada
 // ============================================================
 const questionForm = document.getElementById('question-form');
 questionForm.addEventListener('submit', (e) => {
@@ -187,7 +218,47 @@ questionForm.addEventListener('submit', (e) => {
     input.focus();
     return;
   }
+  handleQuestionSubmitted(value);
+});
+
+async function handleQuestionSubmitted(value) {
+  state.originalQuestion = value;
   state.question = value;
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    startCasting();
+    return;
+  }
+
+  showScreen('refine');
+  document.getElementById('refine-loading').style.display = '';
+  document.getElementById('refine-content').style.display = 'none';
+
+  const reformulated = await requestReformulation(value);
+
+  if (!reformulated || reformulated.trim() === value.trim()) {
+    // La pregunta ya estaba bien planteada, o no se pudo reformular: se continúa sin mostrar comparación.
+    startCasting();
+    return;
+  }
+
+  document.getElementById('refine-loading').style.display = 'none';
+  document.getElementById('refine-content').style.display = '';
+  document.getElementById('refine-original').textContent = `«${value}»`;
+  document.getElementById('refine-note').textContent =
+    'El I Ching se lee mejor con preguntas abiertas sobre una situación. Puedes editar esta versión antes de continuar.';
+  document.getElementById('refine-reformulated').value = reformulated.trim();
+}
+
+document.getElementById('btn-use-reformulated').addEventListener('click', () => {
+  const value = document.getElementById('refine-reformulated').value.trim();
+  state.question = value || state.originalQuestion;
+  startCasting();
+});
+
+document.getElementById('btn-use-original').addEventListener('click', () => {
+  state.question = state.originalQuestion;
   startCasting();
 });
 
@@ -319,7 +390,11 @@ function hexHTMLBlock(lines, mutantPositions) {
 
 function renderResult() {
   const questionEl = document.getElementById('result-question');
-  questionEl.textContent = `«${state.question}»`;
+  let html = `«${escapeHtml(state.question)}»`;
+  if (state.originalQuestion && state.originalQuestion.trim() !== state.question.trim()) {
+    html += `<span class="result-question-original">Pregunta original: «${escapeHtml(state.originalQuestion)}»</span>`;
+  }
+  questionEl.innerHTML = html;
 
   const presentWrap = document.getElementById('present-hexagram');
   presentWrap.innerHTML = '';
@@ -513,12 +588,15 @@ async function requestInterpretation() {
   renderInterpretation(true, lastErr && lastErr.kind === 'AUTH');
 }
 
-function renderMarkdownText(md) {
-  // Escapar HTML básico y luego aplicar negritas + párrafos.
-  const escaped = md
+function escapeHtml(text) {
+  return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function renderMarkdownText(md) {
+  const escaped = escapeHtml(md);
   const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   const paragraphs = withBold.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
   return paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
@@ -566,7 +644,12 @@ function buildMarkdownExport() {
 
   let md = `# Consulta I Ching\n\n`;
   md += `**Fecha:** ${dateStr}\n\n`;
-  md += `**Pregunta:** ${state.question}\n\n`;
+  if (state.originalQuestion && state.originalQuestion.trim() !== state.question.trim()) {
+    md += `**Pregunta original:** ${state.originalQuestion}\n\n`;
+    md += `**Pregunta usada en la consulta (reformulada):** ${state.question}\n\n`;
+  } else {
+    md += `**Pregunta:** ${state.question}\n\n`;
+  }
   md += `## Hexagrama presente\n\n`;
   md += `${p.n}. ${p.spanish} (${p.pinyin}) — ${TRIGRAMS[p.upper].spanish} sobre ${TRIGRAMS[p.lower].spanish}\n\n`;
   md += '```\n' + linesMarkdown(state.lines, state.mutantPositions) + '\n```\n\n';
