@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>I Ching — Oráculo</title>
+<meta name="description" content="Oráculo I Ching auténtico en español, método de las tres monedas, con interpretación generada por IA.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<main id="app">
+
+  <!-- ============ PANTALLA 0: CLAVE DE GEMINI ============ -->
+  <section id="screen-apikey" class="screen">
+    <div class="screen-inner">
+      <p class="glyph">☯</p>
+      <h2 class="apikey-title">Tu clave de Gemini</h2>
+      <p class="hint">
+        Este oráculo interpreta cada tirada con la API de Gemini. Pega tu
+        propia clave para activarla: se guarda solo en este navegador
+        (<code>localStorage</code>), nunca se envía a ningún servidor
+        propio ni queda en el código del sitio, y permanece disponible
+        mientras no borres los datos del sitio o la cambies.
+      </p>
+      <form id="apikey-form">
+        <input id="apikey-input" type="password" autocomplete="off"
+          spellcheck="false" placeholder="Pega aquí tu API key de Gemini"
+          required>
+        <p id="apikey-error" class="apikey-error" style="display:none;"></p>
+        <button type="submit" class="btn btn-primary">Guardar y continuar</button>
+      </form>
+      <p class="apikey-help">
+        ¿No tienes una clave? Consíguela gratis en
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+        Por seguridad, restríngela allí por referrer HTTP a tu propio
+        dominio antes de usarla aquí. Sin clave configurada, el oráculo
+        igual funciona con una interpretación estructural generada
+        localmente, sin IA.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ PANTALLA 1: INICIO ============ -->
+  <section id="screen-home" class="screen">
+    <div class="screen-inner home-inner">
+      <p class="glyph">☯</p>
+      <h1>I Ching</h1>
+      <p class="subtitle">El Libro de los Cambios</p>
+      <p class="description">
+        Un oráculo tradicional chino de más de tres mil años. Formula una
+        pregunta abierta, lanza tres monedas seis veces y recibe una
+        lectura estructurada de tu situación presente.
+      </p>
+      <button id="btn-start" class="btn btn-primary">Comenzar consulta</button>
+      <button id="btn-change-apikey" class="btn btn-link">Cambiar clave de Gemini</button>
+      <button id="btn-clear-apikey" class="btn btn-link">Borrar clave guardada</button>
+    </div>
+  </section>
+
+  <!-- ============ PANTALLA 2: PREGUNTA ============ -->
+  <section id="screen-question" class="screen">
+    <div class="screen-inner">
+      <h2>Tu pregunta</h2>
+      <p class="hint">
+        Formula una pregunta abierta sobre una situación, no un sí/no.
+        Por ejemplo: «¿Qué debo considerar respecto a…?» en vez de
+        «¿Va a pasar X?».
+      </p>
+      <form id="question-form">
+        <textarea id="question-input" rows="5" required
+          placeholder="Escribe aquí tu pregunta…"></textarea>
+        <button type="submit" class="btn btn-primary">Lanzar las monedas</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ PANTALLA 3: TIRADA ============ -->
+  <section id="screen-casting" class="screen">
+    <div class="screen-inner">
+      <h2>Tirada en curso</h2>
+      <p id="casting-status" class="hint">Preparando…</p>
+      <div id="coins-display" class="coins-display"></div>
+      <div id="casting-hexagram" class="hex-block casting"></div>
+    </div>
+  </section>
+
+  <!-- ============ PANTALLA 4: RESULTADO ============ -->
+  <section id="screen-result" class="screen">
+    <div class="screen-inner result-inner">
+      <p id="result-question" class="result-question"></p>
+
+      <article class="hex-card">
+        <h2>Hexagrama presente</h2>
+        <div class="hex-display">
+          <div id="present-hexagram" class="hex-block"></div>
+          <div class="hex-meta">
+            <h3 id="present-title"></h3>
+            <p id="present-pinyin" class="pinyin"></p>
+            <p id="present-trigrams" class="trigrams"></p>
+            <p id="present-keywords" class="keywords"></p>
+          </div>
+        </div>
+        <p id="present-judgment" class="hex-text"></p>
+        <p id="present-image" class="hex-text"></p>
+      </article>
+
+      <article id="mutant-section" class="hex-card">
+        <h2>Líneas mutantes</h2>
+        <ul id="mutant-list" class="mutant-list"></ul>
+      </article>
+
+      <article id="changing-section" class="hex-card">
+        <h2>Hexagrama de cambio</h2>
+        <div class="hex-display">
+          <div id="changing-hexagram" class="hex-block"></div>
+          <div class="hex-meta">
+            <h3 id="changing-title"></h3>
+            <p id="changing-pinyin" class="pinyin"></p>
+            <p id="changing-trigrams" class="trigrams"></p>
+            <p id="changing-keywords" class="keywords"></p>
+          </div>
+        </div>
+        <p id="changing-judgment" class="hex-text"></p>
+        <p id="changing-image" class="hex-text"></p>
+      </article>
+
+      <article class="hex-card">
+        <h2>Interpretación</h2>
+        <div id="interpretation-box" class="interpretation-box"></div>
+        <button id="btn-retry-interpretation" class="btn btn-secondary" style="display:none;">Reintentar</button>
+      </article>
+
+      <div class="action-row">
+        <button id="btn-copy-markdown" class="btn btn-secondary">Copiar en Markdown</button>
+        <button id="btn-new-interpretation" class="btn btn-secondary">Nueva Interpretación</button>
+        <button id="btn-new-consultation" class="btn btn-secondary">Nueva Consulta</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
